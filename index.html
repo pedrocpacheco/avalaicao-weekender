@@ -165,6 +165,13 @@ textarea.inp{min-height:84px;resize:vertical;line-height:1.5}
 .depbanner .linkbtn{text-decoration:none;background:var(--navy);color:#fff;border-radius:999px;padding:9px 18px;font-size:14px}
 .dupdep{align-self:flex-start;margin-top:2px}
 .screen .primary{margin-top:6px}
+.consent{margin:0 0 14px}
+.consent .msg{flex-basis:100%}
+.field.bad.consent{flex-wrap:wrap}
+.upline{margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--navy)}
+.upline .bar{height:6px;flex:none}
+.upline.ok{color:var(--ok);font-weight:600}
+.vtag{font-size:12.5px;font-weight:600;color:var(--royal);white-space:nowrap}
 .formerr{color:var(--err);font-size:14px;background:var(--errbg);padding:10px 14px;border-radius:12px;max-width:560px}
 .small{font-size:13px;color:var(--mute)}
 
@@ -214,6 +221,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
     <div class="wrap">
       <span class="txt"><b id="pcount">0</b> de <span id="ptotal">11</span> plenárias avaliadas</span>
       <div class="bar" aria-hidden="true"><i id="pbar"></i></div>
+      <span class="vtag" id="vtag" hidden></span>
     </div>
   </div>
 
@@ -283,6 +291,23 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
         </div>
       </section>
 
+      <section class="sec" id="sec-dep">
+        <div class="sec-h"><h2>Deixe um depoimento</h2></div>
+        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros. <span id="depdica">O vídeo vai sendo enviado enquanto você responde o resto da avaliação.</span></p>
+        <div class="rec">
+          <label class="consent field" data-f="consent" id="consentwrap">
+            <input type="checkbox" id="consent">
+            <span>Autorizo a Igreja Batista da Palavra a usar meu depoimento (voz e imagem) na divulgação do Weekender Brasil.</span>
+            <span class="msg">Marque a autorização antes de gravar ou escolher o vídeo.</span>
+          </label>
+          <div class="stage" id="stage"></div>
+          <div class="upline" id="upline" hidden><div class="bar"><i id="upbar"></i></div><span id="uptxt"></span></div>
+          <div class="alt" id="alt">Quer a melhor qualidade? Grave com a câmera do celular, em pé, e <label for="file" id="filelabel">envie o arquivo aqui</label> (até 500 MB).
+            <input type="file" id="file" accept="video/*" hidden>
+          </div>
+        </div>
+      </section>
+
       <div id="rated"></div>
 
       <section class="sec" id="sec-coment">
@@ -290,20 +315,6 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
         <div class="qs" id="qs"></div>
       </section>
 
-      <section class="sec" id="sec-dep">
-        <div class="sec-h"><h2>Deixe um depoimento</h2></div>
-        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros.</p>
-        <div class="rec">
-          <div class="stage" id="stage"></div>
-          <div class="alt" id="alt">Quer a melhor qualidade? Grave com a câmera do celular, em pé, e <label for="file">envie o arquivo aqui</label> (até 500 MB).
-            <input type="file" id="file" accept="video/*" hidden>
-          </div>
-          <label class="consent field" data-f="consent" id="consentwrap" hidden>
-            <input type="checkbox" id="consent">
-            <span>Autorizo a Igreja Batista da Palavra a usar meu depoimento (voz e imagem) na divulgação do Weekender Brasil.</span>
-          </label>
-        </div>
-      </section>
 
       <div class="submit-area">
         <div class="formerr" id="formerr" hidden></div>
@@ -630,35 +641,37 @@ function carregarRascunho(){
 }
 
 /* ----------------------------- gravação ----------------------------- */
-const media = { modo:'video', blob:null, mime:'', origem:'', stream:null, rec:null, chunks:[], t0:0, tick:null, ac:null, raf:null, url:'' };
+const media = { modo:'video', blob:null, mime:'', origem:'', stream:null, rec:null, chunks:[], t0:0, tick:null, url:'' };
 const podeGravar = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
 const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const gravando = () => !!(media.rec && media.rec.state === 'recording');
 
-function tipoSuportado(modo){
-  const c = modo === 'video'
-    ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm']
-    : ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];
+function tipoSuportado(){
+  // H.264 em WebM primeiro (Chrome/Android): sai em pedaços durante a gravação, então já vai subindo.
+  // No iPhone (Safari) usa MP4.
+  const c = ['video/webm;codecs=h264,opus','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return c.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch(e) { return false; } }) || '';
 }
 function pararStream(){
   if (media.stream) media.stream.getTracks().forEach(t => t.stop());
   media.stream = null;
-  if (media.raf) cancelAnimationFrame(media.raf);
-  if (media.ac) { try { media.ac.close(); } catch(e){} media.ac = null; }
   clearInterval(media.tick);
 }
+function precisaAutorizar(){
+  if ($('#consent').checked) return false;
+  erro('consent'); $('#consentwrap').scrollIntoView({ behavior:'smooth', block:'center' });
+  return true;
+}
 function palco(){
-  const st = $('#stage'); const lim = LIMITE[media.modo];
-  $('#consentwrap').hidden = !media.blob;
-  $('#alt').hidden = !podeGravar || !!media.blob || (media.rec && media.rec.state === 'recording');
-  if (media.rec && media.rec.state === 'recording') return; // desenhado em gravar()
+  const st = $('#stage');
+  $('#alt').hidden = !podeGravar || !!media.blob || gravando();
+  if (gravando()) return; // desenhado em gravar()
   if (media.blob) {
-    const isV = media.mime.startsWith('video');
-    st.innerHTML = `${isV ? `<video src="${media.url}" controls playsinline></video>` : `<audio src="${media.url}" controls></audio>`}
-      <div class="lim">${media.origem === 'arquivo' ? 'Arquivo escolhido' : 'Gravação pronta'} · ${(media.blob.size / 1048576).toFixed(1)} MB${media.blob.size > 40 * 1048576 ? '<br>Arquivo grande: se puder, envie pelo Wi-Fi.' : ''}</div>
+    st.innerHTML = `<video src="${media.url}" controls playsinline></video>
+      <div class="lim">${media.origem === 'arquivo' ? 'Vídeo escolhido' : 'Gravação pronta'} · ${mbTxt(media.blob.size)} MB${media.blob.size > 40 * 1048576 ? '<br>Arquivo grande: se puder, use o Wi-Fi.' : ''}</div>
       <div class="actions"><button type="button" class="ghost" id="regravar">${media.origem === 'arquivo' ? 'Trocar' : 'Gravar de novo'}</button>
       <button type="button" class="ghost" id="excluir">Excluir</button></div>`;
-    $('#regravar').onclick = () => { descartar(); if (media.origem !== 'arquivo' && podeGravar) gravar(); else $('#file').click(); };
+    $('#regravar').onclick = () => { const eraArquivo = media.origem === 'arquivo'; descartar(); palco(); if (!eraArquivo && podeGravar) gravar(); else $('#file').click(); };
     $('#excluir').onclick = () => { descartar(); palco(); };
     return;
   }
@@ -667,49 +680,50 @@ function palco(){
       <label for="file" class="recbtn"><span class="dot"></span>Gravar ou escolher vídeo</label>`;
     return;
   }
-  st.innerHTML = `<button type="button" class="recbtn" id="startrec"><span class="dot"></span>Gravar ${media.modo === 'video' ? 'vídeo' : 'áudio'}</button>
-    <div class="lim">Até ${media.modo === 'video' ? '3 minutos' : '5 minutos'}. Você pode assistir antes de enviar.</div>`;
+  st.innerHTML = `<button type="button" class="recbtn" id="startrec"><span class="dot"></span>Gravar vídeo</button>
+    <div class="lim">Até 3 minutos. Você pode assistir antes de enviar.</div>`;
   $('#startrec').onclick = gravar;
 }
 function descartar(){
+  if (gravando()) { media.rec.onstop = null; try { media.rec.stop(); } catch(e) {} pararStream(); }
   if (media.url) URL.revokeObjectURL(media.url);
-  Object.assign(media, { blob:null, mime:'', origem:'', url:'' });
-  $('#consent').checked = false; limparErro('consent');
+  Object.assign(media, { blob:null, mime:'', origem:'', url:'', chunks:[], rec:null });
+  cancelarEnvio();
 }
 async function gravar(){
-  const st = $('#stage'); const modo = media.modo; const lim = LIMITE[modo];
+  if (precisaAutorizar()) return;
+  const st = $('#stage'); const lim = LIMITE.video;
   try {
-    media.stream = await navigator.mediaDevices.getUserMedia(modo === 'video'
-      ? { audio: { echoCancellation:true, noiseSuppression:true }, video: { facingMode:'user', width:{ ideal:1920 }, height:{ ideal:1080 }, frameRate:{ ideal:30, max:30 } } }
-      : { audio: { echoCancellation:true, noiseSuppression:true } });
+    media.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true },
+      video: { facingMode:'user', width:{ ideal:1920 }, height:{ ideal:1080 }, frameRate:{ ideal:30, max:30 } } });
   } catch(err) {
-    st.innerHTML = `<div class="recerr">Não conseguimos acessar ${modo === 'video' ? 'a câmera' : 'o microfone'}. Libere a permissão no navegador e tente de novo, ou envie um arquivo.</div>
+    st.innerHTML = `<div class="recerr">Não conseguimos acessar a câmera. Libere a permissão no navegador e tente de novo, ou envie um arquivo.</div>
       <button type="button" class="recbtn" id="startrec"><span class="dot"></span>Tentar de novo</button>`;
     $('#startrec').onclick = gravar; return;
   }
-  const mime = tipoSuportado(modo);
-  const opts = modo === 'video' ? { videoBitsPerSecond: 8000000, audioBitsPerSecond: 160000 } : { audioBitsPerSecond: 128000 };
+  const mime = tipoSuportado();
+  const opts = { videoBitsPerSecond: 8000000, audioBitsPerSecond: 160000 };
   if (mime) opts.mimeType = mime;
   try { media.rec = new MediaRecorder(media.stream, opts); }
   catch(e) { media.rec = new MediaRecorder(media.stream); }
   media.chunks = [];
-  media.rec.ondataavailable = e => { if (e.data && e.data.size) media.chunks.push(e.data); };
+  media.rec.ondataavailable = e => { if (e.data && e.data.size) { media.chunks.push(e.data); bombear(); } };
   media.rec.onstop = () => {
-    const tipo = (media.rec.mimeType || mime || (modo === 'video' ? 'video/webm' : 'audio/webm'));
     pararStream();
+    const tipo = media.rec.mimeType || mime || 'video/webm';
     media.blob = new Blob(media.chunks, { type: tipo });
     media.mime = tipo; media.origem = 'gravado'; media.url = URL.createObjectURL(media.blob);
-    palco();
+    palco(); bombear();          // manda o finalzinho que faltava
   };
-  st.innerHTML = `${modo === 'video' ? '<video id="live" autoplay muted playsinline></video>' : '<div class="meter" id="meter">' + '<i></i>'.repeat(18) + '</div>'}
+  st.innerHTML = `<video id="live" autoplay muted playsinline></video>
     <div class="timer"><span class="dot"></span><span id="tt">0:00</span><span style="opacity:.6;font-weight:500">/ ${fmt(lim)}</span></div>
     <div class="tbar"><i id="tb"></i></div>
     <button type="button" class="recbtn stop" id="stoprec"><span class="dot"></span>Parar</button>`;
-  if (modo === 'video') $('#live').srcObject = media.stream;
-  else medidor();
+  $('#live').srcObject = media.stream;
   $('#stoprec').onclick = () => media.rec.state !== 'inactive' && media.rec.stop();
   $('#alt').hidden = true;
   media.rec.start(1000); media.t0 = Date.now();
+  iniciarEnvio(media.rec.mimeType || mime || 'video/webm', 0);   // começa a subir enquanto grava
   media.tick = setInterval(() => {
     const s = (Date.now() - media.t0) / 1000;
     const tt = $('#tt'), tb = $('#tb'); if (!tt) return;
@@ -717,32 +731,196 @@ async function gravar(){
     if (s >= lim && media.rec.state === 'recording') media.rec.stop();
   }, 200);
 }
-function medidor(){
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext; media.ac = new AC();
-    const an = media.ac.createAnalyser(); an.fftSize = 64;
-    media.ac.createMediaStreamSource(media.stream).connect(an);
-    const d = new Uint8Array(an.frequencyBinCount); const bars = $$('#meter i');
-    const loop = () => { an.getByteFrequencyData(d);
-      bars.forEach((b, i) => { const v = d[(i + 2) % d.length] / 255; b.style.height = (8 + v * 40) + 'px'; });
-      media.raf = requestAnimationFrame(loop); };
-    loop();
-  } catch(e) {}
-}
+$('#filelabel').addEventListener('click', e => { if (precisaAutorizar()) e.preventDefault(); });
+$('#stage').addEventListener('click', e => { if (e.target.closest('label[for="file"]') && precisaAutorizar()) e.preventDefault(); });
 $('#file').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   const ext = (f.name.split('.').pop() || '').toLowerCase();
-  const porExt = { mp4:'video/mp4', mov:'video/quicktime', m4v:'video/mp4', webm:'video/webm', '3gp':'video/3gpp', mkv:'video/x-matroska',
-    m4a:'audio/mp4', mp3:'audio/mpeg', wav:'audio/wav', aac:'audio/aac', ogg:'audio/ogg', opus:'audio/ogg' };
-  const tipo = /^video\//.test(f.type) ? f.type : ((porExt[ext] || '').startsWith('video') ? porExt[ext] : '');
+  const porExt = { mp4:'video/mp4', mov:'video/quicktime', m4v:'video/mp4', webm:'video/webm', '3gp':'video/3gpp', mkv:'video/x-matroska' };
+  const tipo = /^video\//.test(f.type) ? f.type : (porExt[ext] || '');
   if (!tipo) { alertaPalco('Escolha um arquivo de vídeo.'); return; }
   if (f.size > MAX_BYTES) { alertaPalco(`Esse arquivo tem ${(f.size / 1048576).toFixed(0)} MB. O limite é 500 MB. Tente um trecho mais curto ou grave em 1080p em vez de 4K.`); return; }
   descartar();
   media.blob = f; media.mime = tipo; media.origem = 'arquivo'; media.url = URL.createObjectURL(f);
   palco();
+  iniciarEnvio(tipo, f.size);   // começa a subir na hora
 });
 function alertaPalco(t){ palco(); $('#stage').insertAdjacentHTML('afterbegin', `<div class="recerr">${esc(t)}</div>`); }
 $('#consent').addEventListener('change', () => limparErro('consent'));
+
+/* ------------------- envio do vídeo em segundo plano ------------------- */
+/* O vídeo começa a subir assim que existe (até durante a gravação). Vai direto para o
+   Google Drive em pedaços; se o navegador bloquear, passa pelo Apps Script (plano B). */
+const Q = 256 * 1024;                     // o Drive exige pedaços múltiplos de 256 KB
+const CHUNK_DIRETO = 64 * 1024 * 1024;
+const CHUNK_RELAY = 8 * 1024 * 1024;
+const MIN_GRAVANDO = 4 * 1024 * 1024;     // durante a gravação, manda a cada ~4 MB
+const up = { gen:0, estado:'parado', pid:null, ptoken:null, url:null, mime:'', size:0, enviado:0, direto:false, diretoOk:false, rodando:false, amostras:[], ultimoAvanco:0, falhas:0 };
+
+/* Mantém a tela acesa enquanto grava ou envia (Wake Lock: Chrome/Android e Safari/iPhone 16.4+). */
+let wake = null, telaLigada = false;
+async function manterTela(on){
+  telaLigada = on;
+  try {
+    if (on && !wake && 'wakeLock' in navigator) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
+    if (!on && wake) { const w = wake; wake = null; await w.release(); }
+  } catch(e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { if (telaLigada) manterTela(true); bombear(); } });
+window.addEventListener('online', () => bombear());
+window.addEventListener('beforeunload', e => { if (up.estado === 'enviando' || gravando()) { e.preventDefault(); e.returnValue = ''; } });
+
+function fonte(){   // o que já existe do vídeo, e se ele já terminou
+  if (media.blob) return { blob: media.blob, final: true };
+  return { blob: new Blob(media.chunks), final: false };
+}
+function iniciarEnvio(mime, size){
+  up.gen++;
+  Object.assign(up, { estado:'enviando', pid:null, ptoken:null, url:null, mime, size, enviado:0, direto:false, diretoOk:false, rodando:false, amostras:[], ultimoAvanco:Date.now(), falhas:0 });
+  manterTela(true); uiEnvio(); bombear();
+}
+function cancelarEnvio(){
+  if (up.pid && API_URL) post({ action:'pCancel', pid: up.pid, ptoken: up.ptoken }).catch(() => {});
+  up.gen++; Object.assign(up, { estado:'parado', pid:null, ptoken:null, url:null, enviado:0 });
+  if (!gravando()) manterTela(false);
+  uiEnvio();
+}
+function putDireto(url, blob, off, total, onProg){
+  return new Promise(resolve => {
+    const x = new XMLHttpRequest();
+    x.open('PUT', url);
+    x.setRequestHeader('Content-Range', `bytes ${off}-${off + blob.size - 1}/${total || '*'}`);
+    x.timeout = 600000;
+    if (x.upload) x.upload.onprogress = e => onProg(e.loaded);
+    x.onload = () => {
+      let range = null; try { range = x.getResponseHeader('Range'); } catch(e) {}
+      let fileId = null; try { fileId = JSON.parse(x.responseText).id; } catch(e) {}
+      resolve({ status: x.status, range, fileId });
+    };
+    x.onerror = () => resolve({ status: 0 });
+    x.ontimeout = () => resolve({ status: 0 });
+    x.send(blob);
+  });
+}
+function marcar(bytes){
+  const agora = Date.now();
+  if (bytes > up.enviado) up.ultimoAvanco = agora;
+  up.enviado = Math.max(up.enviado, bytes);
+  up.amostras.push([agora, up.enviado]);
+  while (up.amostras.length > 2 && agora - up.amostras[0][0] > 8000) up.amostras.shift();
+  uiEnvio();
+}
+function concluido(){
+  up.estado = 'pronto'; up.enviado = fonte().blob.size;
+  if (!gravando()) manterTela(false);
+  uiEnvio();
+}
+async function bombear(){
+  if (up.rodando || up.estado !== 'enviando') return;
+  up.rodando = true; const gen = up.gen;
+  const vivo = () => gen === up.gen && up.estado === 'enviando';
+  const comum = () => ({ pid: up.pid, ptoken: up.ptoken });
+  try {
+    if (!API_URL) {   // modo de teste: simula o envio
+      while (vivo()) { const { blob, final } = fonte(); marcar(Math.min(blob.size, up.enviado + 3 * 1048576)); if (final && up.enviado >= blob.size) { concluido(); break; } await espera(250); }
+      return;
+    }
+    while (vivo()) {
+      const { blob, final } = fonte();
+      const total = final ? blob.size : 0;
+      if (!up.pid) {                                   // abre o envio no Drive
+        let r = null;
+        try { r = await post({ action:'preStart', mime: up.mime, size: total, origin: location.origin }); } catch(e) {}
+        if (!vivo()) return;
+        if (r && r.ok) { up.pid = r.pid; up.ptoken = r.ptoken; up.url = r.url; up.direto = !!r.url; up.falhas = 0; continue; }
+        await espera(Math.min(20000, 2000 * ++up.falhas)); continue;
+      }
+      let livre = blob.size - up.enviado;
+      if (final && livre <= 0) {                       // tudo enviado: confirma com o Drive
+        let s = null; try { s = await post({ action:'pStatus', ...comum(), total }); } catch(e) {}
+        if (!vivo()) return;
+        if (s && s.done) { concluido(); return; }
+        if (s && typeof s.next === 'number' && s.next < blob.size) { up.enviado = s.next; continue; }
+        await espera(Math.min(20000, 2000 * ++up.falhas)); continue;
+      }
+      const lim = up.direto ? CHUNK_DIRETO : CHUNK_RELAY;
+      let len = Math.min(livre, lim);
+      if (!final || len < livre) len = Math.floor(len / Q) * Q;        // pedaço do meio: múltiplo de 256 KB
+      if (!final && (len < MIN_GRAVANDO)) { await espera(800); continue; }  // gravando: espera juntar mais
+      if (len <= 0) { await espera(800); continue; }
+      const off = up.enviado, pedaco = blob.slice(off, off + len);
+      if (up.direto) {
+        const res = await putDireto(up.url, pedaco, off, total, n => { if (vivo()) marcarParcial(off + n); });
+        if (!vivo()) return;
+        if (res.status === 200 || res.status === 201) {
+          marcar(off + len);
+          let d = null;
+          for (let t = 1; t <= 6 && !(d && d.done); t++) {
+            try { d = await post({ action:'pDone', ...comum(), fileId: res.fileId }); } catch(e) { d = null; }
+            if (!(d && d.done)) await espera(1500 * t);
+          }
+          if (!vivo()) return;
+          if (d && d.done) { concluido(); return; }
+          continue;
+        }
+        if (res.status === 308) {
+          up.diretoOk = true; up.falhas = 0;
+          const m = res.range && String(res.range).match(/(\d+)\s*-\s*(\d+)/);
+          marcar(m ? Number(m[2]) + 1 : off + len); up.enviado = m ? Number(m[2]) + 1 : off + len;
+          continue;
+        }
+        if (!up.diretoOk || ++up.falhas > 2) { up.direto = false; up.falhas = 0; }   // navegador bloqueou: usa o plano B
+        else await espera(2000 * up.falhas);
+      } else {
+        let res = null;
+        try { res = await post({ action:'pChunk', ...comum(), offset: off, total, data: await lerBase64(pedaco) }); } catch(e) {}
+        if (!vivo()) return;
+        if (res && res.done) { concluido(); return; }
+        if (res && res.ok) { up.falhas = 0; up.enviado = res.next; marcar(res.next); continue; }
+        await espera(Math.min(20000, 2000 * ++up.falhas));
+      }
+      // depois de uma falha: pergunta ao Drive onde parou
+      let s = null; try { s = await post({ action:'pStatus', ...comum(), total }); } catch(e) {}
+      if (!vivo()) return;
+      if (s && s.done) { concluido(); return; }
+      if (s && typeof s.next === 'number') up.enviado = s.next;
+      if (s && s.error === 'sessao') { up.pid = null; up.enviado = 0; }   // envio expirou: começa outro
+    }
+  } finally {
+    if (gen === up.gen) up.rodando = false;
+    if (vivo() && !up.rodando) setTimeout(bombear, 500);
+  }
+}
+let parcial = 0;
+function marcarParcial(bytes){ parcial = bytes; const agora = Date.now(); up.amostras.push([agora, bytes]); while (up.amostras.length > 2 && agora - up.amostras[0][0] > 8000) up.amostras.shift(); up.ultimoAvanco = agora; uiEnvio(bytes); }
+const mbTxt = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0).replace('.', ',');
+function textoEnvio(feito){
+  const tot = media.blob ? media.blob.size : 0;
+  if (up.estado === 'pronto') return { pct: 100, txt: '✓ Vídeo enviado' };
+  const a = up.amostras, agora = Date.now();
+  let vel = 0; if (a.length > 1 && agora - a[0][0] > 1500) vel = (a[a.length - 1][1] - a[0][1]) / ((a[a.length - 1][0] - a[0][0]) / 1000);
+  if (!tot) return { pct: null, txt: `Enviando enquanto você grava · ${mbTxt(feito)} MB enviados` };
+  const pct = Math.min(99, Math.round(100 * feito / tot));
+  let resta = '';
+  if (vel > 0) { const seg = Math.ceil((tot - feito) / vel); resta = seg > 90 ? ` · faltam ~${Math.ceil(seg / 60)} min` : seg > 3 ? ` · faltam ~${seg} s` : ' · quase lá'; }
+  const v = vel > 0 ? ` · ${(vel / 1048576).toFixed(1).replace('.', ',')} MB/s` : '';
+  const instavel = agora - up.ultimoAvanco > 20000 ? ' · conexão instável, tentando de novo…' : '';
+  return { pct, txt: `Enviando ${mbTxt(feito)} de ${mbTxt(tot)} MB · ${pct}%${resta}${v}${up.pid ? (up.direto ? ' · direto' : ' · alternativo') : ''}${instavel}` };
+}
+function uiEnvio(parcialBytes){
+  const feito = Math.max(up.enviado, parcialBytes || 0);
+  const line = $('#upline'), vt = $('#vtag');
+  if (up.estado === 'parado') { line.hidden = true; vt.hidden = true; return; }
+  const { pct, txt } = textoEnvio(feito);
+  line.hidden = false; line.classList.toggle('ok', up.estado === 'pronto');
+  $('#upbar').style.width = (pct == null ? 100 : pct) + '%';
+  $('#upbar').parentElement.hidden = up.estado === 'pronto';
+  $('#uptxt').textContent = txt + (up.estado === 'pronto' ? '' : soDep ? '' : ' · pode continuar respondendo');
+  vt.hidden = false; vt.textContent = up.estado === 'pronto' ? '· vídeo ✓' : pct == null ? '· vídeo…' : `· vídeo ${pct}%`;
+  const ub = $('#ubar'), ut = $('#utxt');
+  if (ub) ub.style.width = Math.max(2, pct == null ? 2 : pct) + '%';
+  if (ut) ut.textContent = txt;
+}
 
 /* ----------------------------- envio ----------------------------- */
 function validar(){
@@ -757,7 +935,6 @@ function validar(){
   if (!estadoSigla) { erro('estado'); falhas.push('estado'); }
   if (!funcao || (funcao === 'Outro' && !v('funcao-outro'))) { erro('funcao', funcao === 'Outro' ? 'Escreva qual é a sua função.' : 'Escolha sua função.'); falhas.push('funcao'); }
   if (!v('tempo')) { erro('tempo'); falhas.push('tempo'); }
-  if (media.blob && !$('#consent').checked) { erro('consent'); falhas.push('consent'); }
   return falhas;
 }
 function montarCampos(){
@@ -772,7 +949,7 @@ function montarCampos(){
   });
   PERGUNTAS.forEach((q, i) => f.push([q, $('#q' + i).value.trim()]));
   f.push(['Depoimento', media.blob ? 'enviando…' : '']);
-  f.push(['Tipo de depoimento', media.blob ? (media.mime.startsWith('video') ? 'Vídeo' : 'Áudio') : '']);
+  f.push(['Tipo de depoimento', media.blob ? 'Vídeo' : '']);
   f.push(['Autoriza uso do depoimento', media.blob ? 'Sim' : '']);
   return f;
 }
@@ -797,7 +974,7 @@ const espera = ms => new Promise(r => setTimeout(r, ms));
 $('#form').addEventListener('submit', async e => {
   e.preventDefault();
   const fe = $('#formerr'); fe.hidden = true;
-  if (media.rec && media.rec.state === 'recording') { fe.textContent = 'Pare a gravação antes de enviar.'; fe.hidden = false; return; }
+  if (gravando()) { fe.textContent = 'Pare a gravação antes de enviar.'; fe.hidden = false; return; }
   if (soDep) return enviarSoDepoimento();
   const falhas = validar();
   if (falhas.length) {
@@ -810,10 +987,14 @@ $('#form').addEventListener('submit', async e => {
   const email = sem($('#email').value);
   const nome = $('#nome').value.trim();
   const temMidia = !!media.blob;
+  if (temMidia && !(await garantirEnvio())) {
+    btn.disabled = false; btn.textContent = 'Enviar avaliação';
+    fe.textContent = 'Não conseguimos começar o envio do vídeo. Verifique a internet e tente de novo (ou exclua o vídeo para enviar sem ele).'; fe.hidden = false; return;
+  }
   try {
     let r;
-    if (!API_URL) { await espera(900); r = { ok:true, id:'TESTE', token:'x' }; }
-    else r = await post({ action:'submit', email, nome, fields: montarCampos(), hasMedia: temMidia });
+    if (!API_URL) { await espera(900); r = { ok:true, id:'TESTE' }; }
+    else r = await post({ action:'submit', email, nome, fields: montarCampos(), pid: temMidia ? up.pid : null, ptoken: temMidia ? up.ptoken : null });
     if (!r.ok) {
       btn.disabled = false; btn.textContent = 'Enviar avaliação';
       if (r.error === 'duplicado') { emailBloqueado = email; erro('email', 'Este e-mail já enviou uma avaliação. Cada pessoa responde uma vez.');
@@ -823,7 +1004,7 @@ $('#form').addEventListener('submit', async e => {
     }
     store.set(K_SENT, { email, nome, comMidia: temMidia, quando: Date.now() });
     store.del(K_DRAFT);
-    if (temMidia) await enviarMidia(r, nome);
+    if (temMidia) await aguardarVideo(nome, 'Avaliação salva!');
     else telaObrigado(nome);
   } catch(err) {
     btn.disabled = false; btn.textContent = 'Enviar avaliação';
@@ -831,123 +1012,29 @@ $('#form').addEventListener('submit', async e => {
   }
 });
 
-const CHUNK_DIRETO = 32 * 1024 * 1024; // direto para o Drive: pedaços de 32 MB
-const CHUNK_RELAY = 8 * 1024 * 1024;   // plano B, pelo Apps Script: pedaços de 8 MB
-/* Manda um pedaço direto para o Google Drive (sem passar pelo Apps Script). */
-function putDireto(url, blob, off, size, onProg){
-  return new Promise(resolve => {
-    const x = new XMLHttpRequest();
-    x.open('PUT', url);
-    x.setRequestHeader('Content-Range', `bytes ${off}-${off + blob.size - 1}/${size}`);
-    x.timeout = 600000;
-    if (x.upload) x.upload.onprogress = e => onProg(e.loaded);
-    x.onload = () => {
-      let range = null; try { range = x.getResponseHeader('Range'); } catch(e) {}
-      let fileId = null; try { fileId = JSON.parse(x.responseText).id; } catch(e) {}
-      resolve({ status: x.status, range, fileId });
-    };
-    x.onerror = () => resolve({ status: 0 });
-    x.ontimeout = () => resolve({ status: 0 });
-    x.send(blob);
-  });
-}
-async function enviarMidia(r, nome){
-  const blob = media.blob, size = blob.size, mime = media.mime || 'video/mp4';
-  const mb = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0);
+/* Espera o vídeo terminar de subir (se ainda não terminou) depois de enviar a avaliação. */
+async function aguardarVideo(nome, titulo){
+  if (up.estado === 'pronto') return telaObrigado(nome, true);
   mostrar(`<div class="screen">
     <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-    <h2>Avaliação salva!</h2><p>Agora estamos enviando seu vídeo. Não feche esta página.</p>
-    <div class="upl"><div class="bar"><i id="ubar"></i></div><p class="small" id="utxt" style="margin-top:8px">Preparando o envio…</p></div></div>`);
-  // progresso com estimativa de tempo restante (média dos últimos ~8 s)
-  const amostras = [];
-  const prog = feito => {
-    const agora = Date.now(); amostras.push([agora, feito]);
-    while (amostras.length > 2 && agora - amostras[0][0] > 8000) amostras.shift();
-    const b = $('#ubar'); if (b) b.style.width = Math.max(2, Math.round(100 * feito / size)) + '%';
-    let resta = '';
-    const [t0, f0] = amostras[0];
-    if (agora - t0 > 1500 && feito > f0) {
-      const seg = Math.ceil((size - feito) / ((feito - f0) / ((agora - t0) / 1000)));
-      resta = seg > 90 ? ` · faltam ~${Math.ceil(seg / 60)} min` : seg > 3 ? ` · faltam ~${seg} s` : ' · quase lá';
-    }
-    const t = $('#utxt'); if (t) t.textContent = `Enviando ${mb(feito)} de ${mb(size)} MB · ${Math.round(100 * feito / size)}%${resta}`;
-  };
-  const aviso = e => { e.preventDefault(); e.returnValue = ''; };
-  window.addEventListener('beforeunload', aviso);
-  const fim = ok => { window.removeEventListener('beforeunload', aviso); ok ? telaObrigado(nome, true) : falhaMidia(r, nome); };
-  const base = { id: r.id, token: r.token };
-  const situacao = async () => { try { return await post({ ...base, action:'mediaStatus' }); } catch(e) { return null; } };
-  try {
-    if (!API_URL) { for (let o = 0; o < size; o += size / 12) { prog(o); await espera(200); } prog(size); await espera(300); return fim(true); }
-    let st = null;
-    for (let t = 1; t <= 4 && !(st && st.ok); t++) {
-      try { st = await post({ ...base, action:'mediaStart', nome, mime, size, origin: location.origin }); } catch(e) { st = null; }
-      if (st && st.done) return fim(true);
-      if (!(st && st.ok)) await espera(1500 * t);
-    }
-    if (!(st && st.ok)) return fim(false);
-    let off = st.next || 0, falhas = 0;
-    let direto = !!st.url;              // tenta direto para o Drive; se o navegador bloquear, usa o Apps Script
-    let diretoOk = false;               // já funcionou pelo menos uma vez?
-    while (true) {
-      prog(off);
-      if (off >= size) {
-        const s2 = await situacao();
-        if (s2 && s2.done) { prog(size); return fim(true); }
-        if (s2 && typeof s2.next === 'number' && s2.next < size) { off = s2.next; continue; }
-        if (++falhas > 6) return fim(false);
-        await espera(2000 * falhas); continue;
-      }
-      if (direto) {
-        const fimPedaco = Math.min(off + CHUNK_DIRETO, size);
-        const res = await putDireto(st.url, blob.slice(off, fimPedaco), off, size, n => prog(off + n));
-        if (res.status === 200 || res.status === 201) {
-          prog(size);
-          let d = null;
-          for (let t = 1; t <= 5 && !(d && d.done); t++) {
-            try { d = await post({ ...base, action:'mediaDone', fileId: res.fileId }); } catch(e) { d = null; }
-            if (!(d && d.done)) await espera(1500 * t);
-          }
-          return fim(!!(d && d.done));
-        }
-        if (res.status === 308) {
-          diretoOk = true; falhas = 0;
-          const m = res.range && String(res.range).match(/(\d+)\s*-\s*(\d+)/);
-          off = m ? Number(m[2]) + 1 : fimPedaco;
-          continue;
-        }
-        // falhou: se nunca funcionou direto (navegador bloqueou), passa a usar o Apps Script
-        if (!diretoOk || ++falhas > 2) { direto = false; falhas = 0; }
-        else await espera(2000 * falhas);
-        const s2 = await situacao();
-        if (s2 && s2.done) { prog(size); return fim(true); }
-        if (s2 && typeof s2.next === 'number') off = s2.next;
-        continue;
-      }
-      // plano B: pedaços pelo Apps Script
-      let res = null;
-      try {
-        const data = await lerBase64(blob.slice(off, Math.min(off + CHUNK_RELAY, size)));
-        res = await post({ ...base, action:'mediaChunk', offset: off, data });
-      } catch(e) { res = null; }
-      if (res && res.done) { prog(size); return fim(true); }
-      if (res && res.ok) { off = res.next; falhas = 0; continue; }
-      if (++falhas > 6) return fim(false);
-      const t = $('#utxt'); if (t) t.textContent = 'Conexão instável, tentando de novo…';
-      await espera(2000 * falhas);
-      const s2 = await situacao();
-      if (s2 && s2.done) return fim(true);
-      if (s2 && typeof s2.next === 'number') off = s2.next;
-    }
-  } catch(e) { fim(false); }
+    <h2>${titulo}</h2><p>Só falta terminar de enviar seu vídeo. <b>Deixe esta tela aberta</b> até o fim: a tela do celular fica acesa sozinha.</p>
+    <div class="upl"><div class="bar"><i id="ubar"></i></div><p class="small" id="utxt" style="margin-top:8px">Enviando…</p></div>
+    <button class="linkbtn" id="semvideo" hidden>Concluir sem o vídeo</button></div>`);
+  uiEnvio(); bombear();
+  $('#semvideo').onclick = () => { up.gen++; up.estado = 'parado'; manterTela(false); telaObrigado(nome); };
+  while (up.estado === 'enviando') {
+    await espera(500);
+    const sv = $('#semvideo'); if (sv) sv.hidden = Date.now() - up.ultimoAvanco < 45000;
+  }
+  if (up.estado === 'pronto') telaObrigado(nome, true);
 }
-function falhaMidia(r, nome){
-  mostrar(`<div class="screen"><h2>Sua avaliação foi salva.</h2>
-    <p>Mas o vídeo não terminou de subir. Confira a internet (de preferência no Wi-Fi) e toque abaixo: o envio continua de onde parou.</p>
-    <button class="primary" id="retry">Continuar envio do depoimento</button>
-    <button class="linkbtn" id="skip">Deixar sem depoimento</button></div>`);
-  $('#retry').onclick = () => enviarMidia(r, nome);
-  $('#skip').onclick = () => telaObrigado(nome);
+/* Garante que o envio do vídeo já foi aberto no Drive (precisamos do código dele para ligar à avaliação). */
+async function garantirEnvio(){
+  if (!media.blob) return true;
+  if (up.estado === 'parado') iniciarEnvio(media.mime, media.blob.size);
+  if (!API_URL) return true;
+  for (let i = 0; i < 40 && !up.pid && up.estado === 'enviando'; i++) { bombear(); await espera(500); }
+  return !!up.pid || up.estado === 'pronto';
 }
 function mostrar(html){
   $('#app').hidden = true; const d = $('#done'); d.hidden = false; d.innerHTML = html; window.scrollTo(0, 0);
@@ -978,6 +1065,7 @@ function modoDepoimento(on, email){
   $('#send').disabled = false;
   $('#sendnote').hidden = on;
   $('#opcional').hidden = on;
+  $('#depdica').hidden = on;
   $('#sec-dep h2').textContent = on ? 'Grave ou envie seu depoimento' : 'Deixe um depoimento';
   $('#formerr').hidden = true;
   if (on && email) $('#semail').value = email;
@@ -995,7 +1083,6 @@ async function enviarSoDepoimento(){
   const falhas = [];
   if (!emailOk(email)) { erro('semail', 'Escreva um e-mail válido.'); falhas.push('semail'); }
   if (!media.blob) falhas.push('midia');
-  else if (!$('#consent').checked) { erro('consent'); falhas.push('consent'); }
   if (falhas.length) {
     const alvo = falhas[0] === 'midia' ? $('#sec-dep') : $(`[data-f="${falhas[0]}"]`);
     alvo.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -1003,20 +1090,24 @@ async function enviarSoDepoimento(){
     fe.hidden = false; return;
   }
   const btn = $('#send'); btn.disabled = true; btn.textContent = 'Conferindo…';
-  const tipo = media.mime.startsWith('video') ? 'Vídeo' : 'Áudio';
+  if (!(await garantirEnvio())) {
+    btn.disabled = false; btn.textContent = 'Enviar depoimento';
+    fe.textContent = 'Não conseguimos começar o envio do vídeo. Verifique a internet e tente de novo.'; fe.hidden = false; return;
+  }
   try {
-    const r = API_URL ? await post({ action:'depAuth', email, tipo }) : (await espera(700), { ok:true, id:'TESTE', token:'x', nome:'' });
+    const r = API_URL ? await post({ action:'depAuth', email, pid: up.pid, ptoken: up.ptoken }) : (await espera(700), { ok:true, nome:'' });
     if (!r.ok) {
       btn.disabled = false; btn.textContent = 'Enviar depoimento';
       if (r.error === 'naoencontrado') erro('semail', 'Não encontramos uma avaliação com este e-mail. Confira se digitou igual, ou responda a avaliação completa.');
       else if (r.error === 'jaenviado') erro('semail', 'Este e-mail já enviou um depoimento. Obrigado!');
+      else if (r.error === 'sessao') { up.pid = null; bombear(); fe.textContent = 'O envio do vídeo foi reiniciado. Toque em "Enviar depoimento" de novo.'; fe.hidden = false; return; }
       else { fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes. (' + (r.message || r.error || 'erro') + ')'; fe.hidden = false; return; }
       $('[data-f="semail"]').scrollIntoView({ behavior:'smooth', block:'center' });
       fe.textContent = r.error === 'jaenviado' ? 'Cada pessoa envia um depoimento.' : 'E-mail não encontrado.'; fe.hidden = false; return;
     }
     const antes = store.get(K_SENT) || {};
     store.set(K_SENT, { ...antes, email, nome: r.nome || antes.nome || '', comMidia: true, quando: Date.now() });
-    await enviarMidia(r, r.nome || '');
+    await aguardarVideo(r.nome || '', 'Depoimento registrado!');
   } catch(err) {
     btn.disabled = false; btn.textContent = 'Enviar depoimento';
     fe.textContent = 'Sem conexão. Verifique sua internet e tente de novo.'; fe.hidden = false;
