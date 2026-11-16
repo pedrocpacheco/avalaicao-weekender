@@ -161,13 +161,16 @@ textarea.inp{min-height:84px;resize:vertical;line-height:1.5}
 .primary:hover{background:var(--bright)}
 .primary:active{transform:translateY(1px)}
 .primary:disabled{background:#8FA6E8;box-shadow:none;cursor:wait}
-.depbanner{margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;border:1.5px dashed #B9CCF8;border-radius:16px;padding:14px 18px;background:#F7FAFF;font-size:14.5px;color:var(--navy)}
-.depbanner .linkbtn{text-decoration:none;background:var(--navy);color:#fff;border-radius:999px;padding:9px 18px;font-size:14px}
+.depbanner{margin-top:28px;display:flex;align-items:center;gap:14px 16px;flex-wrap:wrap;border-radius:20px;padding:20px 22px;background:var(--navy);color:#fff;box-shadow:0 12px 28px rgba(0,31,83,.22)}
+.depb-ic{width:52px;height:52px;border-radius:50%;background:var(--royal);display:grid;place-items:center;flex:none}
+.depb-t{display:flex;flex-direction:column;flex:1;min-width:200px;font-size:15px;line-height:1.35}
+.depb-t b{font-size:18px}
+.depb-t span{color:var(--ice)}
+.depb-btn{border:0;border-radius:999px;background:#fff;color:var(--navy);font-weight:700;font-size:15px;padding:13px 22px;cursor:pointer;flex:1 1 260px;max-width:100%}
+.depb-btn:hover{background:var(--ice)}
 .dupdep{align-self:flex-start;margin-top:2px}
 .screen .primary{margin-top:6px}
-.consent{margin:0 0 14px}
-.consent .msg{flex-basis:100%}
-.field.bad.consent{flex-wrap:wrap}
+.autq{margin-top:16px}
 .upline{margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--navy)}
 .upline .bar{height:6px;flex:none}
 .upline.ok{color:var(--ok);font-weight:600}
@@ -229,8 +232,9 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
     <form id="form" novalidate>
 
       <div class="depbanner" id="depbanner">
-        <span>Já respondeu e quer só enviar seu depoimento?</span>
-        <button type="button" class="linkbtn" id="irdep">Enviar depoimento</button>
+        <div class="depb-ic" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10l5-3v10l-5-3z"/></svg></div>
+        <div class="depb-t"><b>Já respondeu a avaliação?</b><span>Envie só o seu depoimento em vídeo.</span></div>
+        <button type="button" class="depb-btn" id="irdep">Já respondi, quero só gravar meu depoimento</button>
       </div>
 
       <section class="sec" id="sec-so" hidden>
@@ -293,15 +297,18 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
 
       <section class="sec" id="sec-dep">
         <div class="sec-h"><h2>Deixe um depoimento</h2></div>
-        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros. <span id="depdica">Depois de gravar, o vídeo vai sendo enviado enquanto você responde o resto da avaliação.</span></p>
+        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Você escolhe se ele pode ou não ser usado na divulgação. <span id="depdica">Depois de gravar, o vídeo vai sendo enviado enquanto você responde o resto da avaliação.</span></p>
         <div class="rec">
-          <label class="consent field" data-f="consent" id="consentwrap">
-            <input type="checkbox" id="consent">
-            <span>Autorizo a Igreja Batista da Palavra a usar meu depoimento (voz e imagem) na divulgação do Weekender Brasil.</span>
-            <span class="msg">Marque a autorização antes de gravar ou escolher o vídeo.</span>
-          </label>
           <div class="stage" id="stage"></div>
           <div class="upline" id="upline" hidden><div class="bar"><i id="upbar"></i></div><span id="uptxt"></span></div>
+          <div class="field autq" data-f="consent" id="consentwrap" hidden>
+            <span class="flabel" id="aut-l">Podemos usar seu vídeo na divulgação do Weekender? <span class="req">*</span></span>
+            <div class="chips" role="group" aria-labelledby="aut-l" id="autoriza">
+              <button type="button" class="chip" data-v="Sim" aria-pressed="false">Sim, pode divulgar</button>
+              <button type="button" class="chip" data-v="Não" aria-pressed="false">Não, é só para a organização</button>
+            </div>
+            <span class="msg">Escolha uma das opções.</span>
+          </div>
           <div class="alt" id="alt">Quer a melhor qualidade? Grave com a câmera do celular, em pé, e <label for="file" id="filelabel">envie o arquivo aqui</label> (até 500 MB).
             <input type="file" id="file" accept="video/*" hidden>
           </div>
@@ -655,14 +662,17 @@ function pararStream(){
   media.stream = null;
   clearInterval(media.tick);
 }
-function precisaAutorizar(){
-  if ($('#consent').checked) return false;
-  erro('consent'); $('#consentwrap').scrollIntoView({ behavior:'smooth', block:'center' });
-  return true;
+let autoriza = '';
+function setAutoriza(v){
+  autoriza = v;
+  $$('#autoriza .chip').forEach(x => x.setAttribute('aria-pressed', x.dataset.v === autoriza ? 'true' : 'false'));
+  limparErro('consent');
 }
+$('#autoriza').addEventListener('click', e => { const b = e.target.closest('.chip'); if (b) setAutoriza(autoriza === b.dataset.v ? '' : b.dataset.v); });
 function palco(){
   const st = $('#stage');
   $('#alt').hidden = !podeGravar || !!media.blob || gravando();
+  $('#consentwrap').hidden = !media.blob;
   if (gravando()) return; // desenhado em gravar()
   if (media.blob) {
     st.innerHTML = `<video src="${media.url}" controls playsinline></video>
@@ -686,10 +696,10 @@ function descartar(){
   if (gravando()) { media.rec.onstop = null; try { media.rec.stop(); } catch(e) {} pararStream(); }
   if (media.url) URL.revokeObjectURL(media.url);
   Object.assign(media, { blob:null, mime:'', origem:'', url:'', chunks:[], rec:null });
+  setAutoriza('');
   cancelarEnvio();
 }
 async function gravar(){
-  if (precisaAutorizar()) return;
   const st = $('#stage'); const lim = LIMITE.video;
   try {
     media.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true },
@@ -729,8 +739,6 @@ async function gravar(){
     if (s >= lim && media.rec.state === 'recording') media.rec.stop();
   }, 200);
 }
-$('#filelabel').addEventListener('click', e => { if (precisaAutorizar()) e.preventDefault(); });
-$('#stage').addEventListener('click', e => { if (e.target.closest('label[for="file"]') && precisaAutorizar()) e.preventDefault(); });
 $('#file').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   const ext = (f.name.split('.').pop() || '').toLowerCase();
@@ -744,7 +752,6 @@ $('#file').addEventListener('change', e => {
   iniciarEnvio(tipo, f.size);   // começa a subir na hora
 });
 function alertaPalco(t){ palco(); $('#stage').insertAdjacentHTML('afterbegin', `<div class="recerr">${esc(t)}</div>`); }
-$('#consent').addEventListener('change', () => limparErro('consent'));
 
 /* ------------------- envio do vídeo em segundo plano ------------------- */
 /* O vídeo começa a subir assim que existe (até durante a gravação). Vai direto para o
@@ -937,6 +944,7 @@ function validar(){
   if (!estadoSigla) { erro('estado'); falhas.push('estado'); }
   if (!funcao || (funcao === 'Outro' && !v('funcao-outro'))) { erro('funcao', funcao === 'Outro' ? 'Escreva qual é a sua função.' : 'Escolha sua função.'); falhas.push('funcao'); }
   if (!v('tempo')) { erro('tempo'); falhas.push('tempo'); }
+  if (media.blob && !autoriza) { erro('consent'); falhas.push('consent'); }
   return falhas;
 }
 function montarCampos(){
@@ -952,7 +960,7 @@ function montarCampos(){
   PERGUNTAS.forEach((q, i) => f.push([q, $('#q' + i).value.trim()]));
   f.push(['Depoimento', media.blob ? 'enviando…' : '']);
   f.push(['Tipo de depoimento', media.blob ? 'Vídeo' : '']);
-  f.push(['Autoriza uso do depoimento', media.blob ? 'Sim' : '']);
+  f.push(['Autoriza uso do depoimento', media.blob ? autoriza : '']);
   return f;
 }
 function post(payload){
@@ -1085,6 +1093,7 @@ async function enviarSoDepoimento(){
   const falhas = [];
   if (!emailOk(email)) { erro('semail', 'Escreva um e-mail válido.'); falhas.push('semail'); }
   if (!media.blob) falhas.push('midia');
+  else if (!autoriza) { erro('consent'); falhas.push('consent'); }
   if (falhas.length) {
     const alvo = falhas[0] === 'midia' ? $('#sec-dep') : $(`[data-f="${falhas[0]}"]`);
     alvo.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -1097,7 +1106,7 @@ async function enviarSoDepoimento(){
     fe.textContent = 'Não conseguimos começar o envio do vídeo. Verifique a internet e tente de novo.'; fe.hidden = false; return;
   }
   try {
-    const r = API_URL ? await post({ action:'depAuth', email, pid: up.pid, ptoken: up.ptoken }) : (await espera(700), { ok:true, nome:'' });
+    const r = API_URL ? await post({ action:'depAuth', email, autoriza, pid: up.pid, ptoken: up.ptoken }) : (await espera(700), { ok:true, nome:'' });
     if (!r.ok) {
       btn.disabled = false; btn.textContent = 'Enviar depoimento';
       if (r.error === 'naoencontrado') erro('semail', 'Não encontramos uma avaliação com este e-mail. Confira se digitou igual, ou responda a avaliação completa.');
