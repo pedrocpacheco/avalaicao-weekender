@@ -293,7 +293,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
 
       <section class="sec" id="sec-dep">
         <div class="sec-h"><h2>Deixe um depoimento</h2></div>
-        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros. <span id="depdica">O vídeo vai sendo enviado enquanto você responde o resto da avaliação.</span></p>
+        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros. <span id="depdica">Depois de gravar, o vídeo vai sendo enviado enquanto você responde o resto da avaliação.</span></p>
         <div class="rec">
           <label class="consent field" data-f="consent" id="consentwrap">
             <input type="checkbox" id="consent">
@@ -647,9 +647,7 @@ const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2,
 const gravando = () => !!(media.rec && media.rec.state === 'recording');
 
 function tipoSuportado(){
-  // H.264 em WebM primeiro (Chrome/Android): sai em pedaços durante a gravação, então já vai subindo.
-  // No iPhone (Safari) usa MP4.
-  const c = ['video/webm;codecs=h264,opus','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  const c = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=h264,opus','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return c.find(m => { try { return MediaRecorder.isTypeSupported(m); } catch(e) { return false; } }) || '';
 }
 function pararStream(){
@@ -707,13 +705,14 @@ async function gravar(){
   try { media.rec = new MediaRecorder(media.stream, opts); }
   catch(e) { media.rec = new MediaRecorder(media.stream); }
   media.chunks = [];
-  media.rec.ondataavailable = e => { if (e.data && e.data.size) { media.chunks.push(e.data); bombear(); } };
+  media.rec.ondataavailable = e => { if (e.data && e.data.size) media.chunks.push(e.data); };
   media.rec.onstop = () => {
     pararStream();
     const tipo = media.rec.mimeType || mime || 'video/webm';
     media.blob = new Blob(media.chunks, { type: tipo });
     media.mime = tipo; media.origem = 'gravado'; media.url = URL.createObjectURL(media.blob);
-    palco(); bombear();          // manda o finalzinho que faltava
+    palco(); manterTela(false);
+    iniciarEnvio(tipo, media.blob.size);   // terminou de gravar: começa a subir enquanto a pessoa responde
   };
   st.innerHTML = `<video id="live" autoplay muted playsinline></video>
     <div class="timer"><span class="dot"></span><span id="tt">0:00</span><span style="opacity:.6;font-weight:500">/ ${fmt(lim)}</span></div>
@@ -722,8 +721,7 @@ async function gravar(){
   $('#live').srcObject = media.stream;
   $('#stoprec').onclick = () => media.rec.state !== 'inactive' && media.rec.stop();
   $('#alt').hidden = true;
-  media.rec.start(1000); media.t0 = Date.now();
-  iniciarEnvio(media.rec.mimeType || mime || 'video/webm', 0);   // começa a subir enquanto grava
+  media.rec.start(1000); media.t0 = Date.now(); manterTela(true);
   media.tick = setInterval(() => {
     const s = (Date.now() - media.t0) / 1000;
     const tt = $('#tt'), tb = $('#tb'); if (!tt) return;
@@ -755,7 +753,7 @@ const Q = 256 * 1024;                     // o Drive exige pedaços múltiplos d
 const CHUNK_DIRETO = 64 * 1024 * 1024;
 const CHUNK_RELAY = 8 * 1024 * 1024;
 const MIN_GRAVANDO = 4 * 1024 * 1024;     // durante a gravação, manda a cada ~4 MB
-const up = { gen:0, estado:'parado', pid:null, ptoken:null, url:null, mime:'', size:0, enviado:0, direto:false, diretoOk:false, rodando:false, amostras:[], ultimoAvanco:0, falhas:0 };
+const up = { erro:'', gen:0, estado:'parado', pid:null, ptoken:null, url:null, mime:'', size:0, enviado:0, direto:false, diretoOk:false, rodando:false, amostras:[], ultimoAvanco:0, falhas:0 };
 
 /* Mantém a tela acesa enquanto grava ou envia (Wake Lock: Chrome/Android e Safari/iPhone 16.4+). */
 let wake = null, telaLigada = false;
@@ -804,7 +802,7 @@ function putDireto(url, blob, off, total, onProg){
 }
 function marcar(bytes){
   const agora = Date.now();
-  if (bytes > up.enviado) up.ultimoAvanco = agora;
+  if (bytes > up.enviado) { up.ultimoAvanco = agora; up.erro = ''; }
   up.enviado = Math.max(up.enviado, bytes);
   up.amostras.push([agora, up.enviado]);
   while (up.amostras.length > 2 && agora - up.amostras[0][0] > 8000) up.amostras.shift();
@@ -832,7 +830,8 @@ async function bombear(){
         let r = null;
         try { r = await post({ action:'preStart', mime: up.mime, size: total, origin: location.origin }); } catch(e) {}
         if (!vivo()) return;
-        if (r && r.ok) { up.pid = r.pid; up.ptoken = r.ptoken; up.url = r.url; up.direto = !!r.url; up.falhas = 0; continue; }
+        if (r && r.ok) { up.pid = r.pid; up.ptoken = r.ptoken; up.url = r.url; up.direto = !!r.url; up.falhas = 0; up.erro = ''; continue; }
+        up.erro = 'não abriu o envio: ' + (r ? (r.message || r.error || 'erro') : 'sem conexão com a planilha'); uiEnvio();
         await espera(Math.min(20000, 2000 * ++up.falhas)); continue;
       }
       let livre = blob.size - up.enviado;
@@ -869,6 +868,7 @@ async function bombear(){
           marcar(m ? Number(m[2]) + 1 : off + len); up.enviado = m ? Number(m[2]) + 1 : off + len;
           continue;
         }
+        up.erro = 'envio direto recusado (' + res.status + ')';
         if (!up.diretoOk || ++up.falhas > 2) { up.direto = false; up.falhas = 0; }   // navegador bloqueou: usa o plano B
         else await espera(2000 * up.falhas);
       } else {
@@ -876,7 +876,8 @@ async function bombear(){
         try { res = await post({ action:'pChunk', ...comum(), offset: off, total, data: await lerBase64(pedaco) }); } catch(e) {}
         if (!vivo()) return;
         if (res && res.done) { concluido(); return; }
-        if (res && res.ok) { up.falhas = 0; up.enviado = res.next; marcar(res.next); continue; }
+        if (res && res.ok) { up.falhas = 0; up.erro = ''; up.enviado = res.next; marcar(res.next); continue; }
+        up.erro = 'pedaço não enviado: ' + (res ? (res.message || res.error || 'erro') : 'sem conexão'); uiEnvio();
         await espera(Math.min(20000, 2000 * ++up.falhas));
       }
       // depois de uma falha: pergunta ao Drive onde parou
@@ -904,7 +905,8 @@ function textoEnvio(feito){
   let resta = '';
   if (vel > 0) { const seg = Math.ceil((tot - feito) / vel); resta = seg > 90 ? ` · faltam ~${Math.ceil(seg / 60)} min` : seg > 3 ? ` · faltam ~${seg} s` : ' · quase lá'; }
   const v = vel > 0 ? ` · ${(vel / 1048576).toFixed(1).replace('.', ',')} MB/s` : '';
-  const instavel = agora - up.ultimoAvanco > 20000 ? ' · conexão instável, tentando de novo…' : '';
+  const parado = agora - up.ultimoAvanco;
+  const instavel = up.erro && parado > 3000 ? ` · tentando de novo… (${up.erro})` : parado > 20000 ? ' · tentando de novo…' : '';
   return { pct, txt: `Enviando ${mbTxt(feito)} de ${mbTxt(tot)} MB · ${pct}%${resta}${v}${up.pid ? (up.direto ? ' · direto' : ' · alternativo') : ''}${instavel}` };
 }
 function uiEnvio(parcialBytes){
