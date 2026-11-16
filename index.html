@@ -161,6 +161,10 @@ textarea.inp{min-height:84px;resize:vertical;line-height:1.5}
 .primary:hover{background:var(--bright)}
 .primary:active{transform:translateY(1px)}
 .primary:disabled{background:#8FA6E8;box-shadow:none;cursor:wait}
+.depbanner{margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;border:1.5px dashed #B9CCF8;border-radius:16px;padding:14px 18px;background:#F7FAFF;font-size:14.5px;color:var(--navy)}
+.depbanner .linkbtn{text-decoration:none;background:var(--navy);color:#fff;border-radius:999px;padding:9px 18px;font-size:14px}
+.dupdep{align-self:flex-start;margin-top:2px}
+.screen .primary{margin-top:6px}
 .formerr{color:var(--err);font-size:14px;background:var(--errbg);padding:10px 14px;border-radius:12px;max-width:560px}
 .small{font-size:13px;color:var(--mute)}
 
@@ -216,6 +220,24 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
   <main class="wrap">
     <form id="form" novalidate>
 
+      <div class="depbanner" id="depbanner">
+        <span>Já respondeu e quer só enviar seu depoimento?</span>
+        <button type="button" class="linkbtn" id="irdep">Enviar depoimento</button>
+      </div>
+
+      <section class="sec" id="sec-so" hidden>
+        <div class="sec-h"><h2>Seu e-mail</h2></div>
+        <p class="sec-d">Use o mesmo e-mail com que você respondeu a avaliação. Cada pessoa envia um depoimento.</p>
+        <div class="card">
+          <div class="field" data-f="semail">
+            <label for="semail">E-mail <span class="req">*</span></label>
+            <input class="inp" id="semail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="voce@exemplo.com" maxlength="160">
+            <span class="msg" id="semailmsg">Escreva um e-mail válido.</span>
+          </div>
+        </div>
+        <p class="small" style="margin-top:12px">Ainda não respondeu? <button type="button" class="linkbtn" id="voltaraval">Ir para a avaliação completa</button></p>
+      </section>
+
       <section class="sec" id="sec-voce">
         <div class="sec-h"><h2>Sobre você</h2></div>
         <p class="sec-d">Cada pessoa responde uma vez, por e-mail.</p>
@@ -229,6 +251,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
             <label for="email">E-mail <span class="req">*</span></label>
             <input class="inp" id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="voce@exemplo.com" maxlength="160">
             <span class="msg" id="emailmsg">Escreva um e-mail válido.</span>
+            <button type="button" class="linkbtn dupdep" id="dupdep" hidden>Quer só enviar seu depoimento com este e-mail?</button>
           </div>
           <div class="field full" data-f="igreja">
             <label for="igreja">Igreja <span class="req">*</span></label>
@@ -269,7 +292,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
 
       <section class="sec" id="sec-dep">
         <div class="sec-h"><h2>Deixe um depoimento</h2></div>
-        <p class="sec-d">Opcional. Grave um áudio de até 5 minutos ou um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja.</p>
+        <p class="sec-d"><span id="opcional">Opcional. </span>Grave um áudio de até 5 minutos ou um vídeo de até 3 minutos contando o que o Weekender significou para você e sua igreja. Os vídeos podem ser usados na divulgação dos próximos encontros.</p>
         <div class="rec">
           <div class="seg" role="group" aria-label="Tipo de depoimento">
             <button type="button" data-mode="audio" aria-pressed="true">
@@ -278,7 +301,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10l5-3v10l-5-3z"/></svg>Vídeo</button>
           </div>
           <div class="stage" id="stage"></div>
-          <div class="alt" id="alt">Prefere usar um arquivo do celular? <label for="file">Enviar arquivo</label> (até 30 MB)
+          <div class="alt" id="alt">Quer a melhor qualidade? Grave com a câmera do celular, em pé, e <label for="file">envie o arquivo aqui</label> (até 500 MB).
             <input type="file" id="file" accept="audio/*,video/*" hidden>
           </div>
           <label class="consent field" data-f="consent" id="consentwrap" hidden>
@@ -291,7 +314,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
       <div class="submit-area">
         <div class="formerr" id="formerr" hidden></div>
         <button class="primary" type="submit" id="send">Enviar avaliação</button>
-        <span class="small">Suas respostas ficam salvas neste aparelho até você enviar.</span>
+        <span class="small" id="sendnote">Suas respostas ficam salvas neste aparelho até você enviar.</span>
       </div>
     </form>
   </main>
@@ -308,7 +331,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
    COLE AQUI o endereço do Apps Script (termina em /exec), entre as aspas.
    Enquanto estiver vazio, o site funciona em "modo de teste" e não salva.
    ===================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyvW3yfUQt-4EVZbsg6uOdfOHdWxm5AwNpum5O8pq1XwA1nR7p_coAd7mEuCteeMi_v/exec';
+const API_URL = '';
 
 /* ----------------------------- conteúdo ----------------------------- */
 const SECOES = [
@@ -395,7 +418,7 @@ const ESTADOS = [
   ['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']
 ];
 const LIMITE = { audio:300, video:180 };
-const MAX_BYTES = 30 * 1024 * 1024;
+const MAX_BYTES = 500 * 1024 * 1024;
 const K_DRAFT = 'wk26-avaliacao-rascunho';
 const K_SENT = 'wk26-avaliacao-enviada';
 
@@ -569,12 +592,14 @@ async function checarEmail(){
   try {
     const r = await fetch(`${API_URL}?action=check&email=${encodeURIComponent(e)}`);
     const j = await r.json();
-    if (j && j.exists) { emailBloqueado = e; erro('email', 'Este e-mail já enviou uma avaliação. Cada pessoa responde uma vez.'); return true; }
+    if (j && j.exists) { emailBloqueado = e; erro('email', 'Este e-mail já enviou uma avaliação. Cada pessoa responde uma vez.'); $('#dupdep').hidden = false; return true; }
     if (emailBloqueado === e) emailBloqueado = '';
   } catch(err) {}
   return false;
 }
 $('#email').addEventListener('blur', checarEmail);
+$('#email').addEventListener('input', () => { $('#dupdep').hidden = true; });
+$('#dupdep').addEventListener('click', () => modoDepoimento(true, $('#email').value.trim()));
 
 /* ----------------------------- erros ----------------------------- */
 function erro(f, texto){
@@ -636,7 +661,7 @@ function palco(){
   if (media.blob) {
     const isV = media.mime.startsWith('video');
     st.innerHTML = `${isV ? `<video src="${media.url}" controls playsinline></video>` : `<audio src="${media.url}" controls></audio>`}
-      <div class="lim">${media.origem === 'arquivo' ? 'Arquivo escolhido' : 'Gravação pronta'} · ${(media.blob.size / 1048576).toFixed(1)} MB</div>
+      <div class="lim">${media.origem === 'arquivo' ? 'Arquivo escolhido' : 'Gravação pronta'} · ${(media.blob.size / 1048576).toFixed(1)} MB${media.blob.size > 40 * 1048576 ? '<br>Arquivo grande: se puder, envie pelo Wi-Fi.' : ''}</div>
       <div class="actions"><button type="button" class="ghost" id="regravar">${media.origem === 'arquivo' ? 'Trocar' : 'Gravar de novo'}</button>
       <button type="button" class="ghost" id="excluir">Excluir</button></div>`;
     $('#regravar').onclick = () => { descartar(); if (media.origem !== 'arquivo' && podeGravar) gravar(); else $('#file').click(); };
@@ -661,7 +686,7 @@ async function gravar(){
   const st = $('#stage'); const modo = media.modo; const lim = LIMITE[modo];
   try {
     media.stream = await navigator.mediaDevices.getUserMedia(modo === 'video'
-      ? { audio: { echoCancellation:true, noiseSuppression:true }, video: { facingMode:'user', width:{ ideal:960 }, height:{ ideal:540 }, frameRate:{ ideal:30, max:30 } } }
+      ? { audio: { echoCancellation:true, noiseSuppression:true }, video: { facingMode:'user', width:{ ideal:1920 }, height:{ ideal:1080 }, frameRate:{ ideal:30, max:30 } } }
       : { audio: { echoCancellation:true, noiseSuppression:true } });
   } catch(err) {
     st.innerHTML = `<div class="recerr">Não conseguimos acessar ${modo === 'video' ? 'a câmera' : 'o microfone'}. Libere a permissão no navegador e tente de novo, ou envie um arquivo.</div>
@@ -669,7 +694,7 @@ async function gravar(){
     $('#startrec').onclick = gravar; return;
   }
   const mime = tipoSuportado(modo);
-  const opts = modo === 'video' ? { videoBitsPerSecond: 850000, audioBitsPerSecond: 96000 } : { audioBitsPerSecond: 96000 };
+  const opts = modo === 'video' ? { videoBitsPerSecond: 6000000, audioBitsPerSecond: 128000 } : { audioBitsPerSecond: 128000 };
   if (mime) opts.mimeType = mime;
   try { media.rec = new MediaRecorder(media.stream, opts); }
   catch(e) { media.rec = new MediaRecorder(media.stream); }
@@ -721,11 +746,15 @@ $$('.seg button').forEach(b => b.addEventListener('click', () => {
 $('#file').accept = 'audio/*';
 $('#file').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  if (!/^(audio|video)\//.test(f.type)) { alertaPalco('Escolha um arquivo de áudio ou vídeo.'); return; }
-  if (f.size > MAX_BYTES) { alertaPalco(`Esse arquivo tem ${(f.size / 1048576).toFixed(0)} MB. O limite é 30 MB. ${podeGravar ? 'Tente gravar direto pelo site, que fica bem menor.' : 'Tente um trecho mais curto.'}`); return; }
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  const porExt = { mp4:'video/mp4', mov:'video/quicktime', m4v:'video/mp4', webm:'video/webm', '3gp':'video/3gpp', mkv:'video/x-matroska',
+    m4a:'audio/mp4', mp3:'audio/mpeg', wav:'audio/wav', aac:'audio/aac', ogg:'audio/ogg', opus:'audio/ogg' };
+  const tipo = /^(audio|video)\//.test(f.type) ? f.type : (porExt[ext] || '');
+  if (!tipo) { alertaPalco('Escolha um arquivo de áudio ou vídeo.'); return; }
+  if (f.size > MAX_BYTES) { alertaPalco(`Esse arquivo tem ${(f.size / 1048576).toFixed(0)} MB. O limite é 500 MB. Tente um trecho mais curto ou grave em 1080p em vez de 4K.`); return; }
   descartar();
-  media.blob = f; media.mime = f.type; media.origem = 'arquivo'; media.url = URL.createObjectURL(f);
-  const v = f.type.startsWith('video') ? 'video' : 'audio';
+  media.blob = f; media.mime = tipo; media.origem = 'arquivo'; media.url = URL.createObjectURL(f);
+  const v = tipo.startsWith('video') ? 'video' : 'audio';
   media.modo = v; $$('.seg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.mode === v ? 'true' : 'false'));
   palco();
 });
@@ -786,6 +815,7 @@ $('#form').addEventListener('submit', async e => {
   e.preventDefault();
   const fe = $('#formerr'); fe.hidden = true;
   if (media.rec && media.rec.state === 'recording') { fe.textContent = 'Pare a gravação antes de enviar.'; fe.hidden = false; return; }
+  if (soDep) return enviarSoDepoimento();
   const falhas = validar();
   if (falhas.length) {
     const alvo = $(`[data-f="${falhas[0]}"]`);
@@ -808,7 +838,7 @@ $('#form').addEventListener('submit', async e => {
       else fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes; suas respostas continuam aqui.';
       fe.hidden = false; return;
     }
-    store.set(K_SENT, { email, nome, quando: Date.now() });
+    store.set(K_SENT, { email, nome, comMidia: temMidia, quando: Date.now() });
     store.del(K_DRAFT);
     if (temMidia) await enviarMidia(r, nome);
     else telaObrigado(nome);
@@ -818,26 +848,57 @@ $('#form').addEventListener('submit', async e => {
   }
 });
 
+const CHUNK = 8 * 1024 * 1024; // pedaços de 8 MB (múltiplo de 256 KB, exigência do Drive)
 async function enviarMidia(r, nome){
+  const blob = media.blob, size = blob.size, mime = media.mime || 'video/mp4';
+  const mb = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0);
   mostrar(`<div class="screen">
     <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
     <h2>Avaliação salva!</h2><p>Agora estamos enviando seu depoimento. Não feche esta página.</p>
-    <div class="upl"><div class="bar indet"><i></i></div><p class="small" id="utxt" style="margin-top:8px">Enviando ${(media.blob.size / 1048576).toFixed(1)} MB… pode levar até um minuto.</p></div></div>`);
-  for (let tent = 1; tent <= 3; tent++) {
-    try {
-      let res;
-      if (!API_URL) { await espera(1500); res = { ok:true }; }
-      else {
-        const data = await lerBase64(media.blob);
-        res = await post({ action:'media', id:r.id, token:r.token, nome, mime: media.mime, data });
+    <div class="upl"><div class="bar"><i id="ubar"></i></div><p class="small" id="utxt" style="margin-top:8px">Preparando o envio…</p></div></div>`);
+  const prog = off => {
+    const b = $('#ubar'); if (b) b.style.width = Math.max(2, Math.round(100 * off / size)) + '%';
+    const t = $('#utxt'); if (t) t.textContent = `Enviando ${mb(off)} de ${mb(size)} MB · ${Math.round(100 * off / size)}%`;
+  };
+  const aviso = e => { e.preventDefault(); e.returnValue = ''; };
+  window.addEventListener('beforeunload', aviso);
+  const fim = ok => { window.removeEventListener('beforeunload', aviso); ok ? telaObrigado(nome, true) : falhaMidia(r, nome); };
+  const base = { id: r.id, token: r.token };
+  try {
+    if (!API_URL) { for (let o = 0; o < size; o += CHUNK) { prog(o); await espera(250); } prog(size); await espera(300); return fim(true); }
+    let st = null;
+    for (let t = 1; t <= 4 && !(st && st.ok); t++) {
+      try { st = await post({ ...base, action:'mediaStart', nome, mime, size }); } catch(e) { st = null; }
+      if (st && st.done) return fim(true);
+      if (!(st && st.ok)) await espera(1500 * t);
+    }
+    if (!(st && st.ok)) return fim(false);
+    let off = st.next || 0, falhas = 0;
+    while (true) {
+      prog(off);
+      let res = null;
+      if (off < size) {
+        try {
+          const data = await lerBase64(blob.slice(off, Math.min(off + CHUNK, size)));
+          res = await post({ ...base, action:'mediaChunk', offset: off, data });
+        } catch(e) { res = null; }
+      } else {
+        try { res = await post({ ...base, action:'mediaStatus' }); } catch(e) { res = null; }
       }
-      if (res.ok) { telaObrigado(nome, true); return; }
-    } catch(e) {}
-    await espera(1500 * tent);
-  }
+      if (res && res.done) { prog(size); return fim(true); }
+      if (res && res.ok && off < size) { off = res.next; falhas = 0; continue; }
+      // falhou: espera, pergunta ao Drive onde parou e continua dali
+      if (++falhas > 6) return fim(false);
+      const t = $('#utxt'); if (t) t.textContent = 'Conexão instável, tentando de novo…';
+      await espera(2000 * falhas);
+      try { const s2 = await post({ ...base, action:'mediaStatus' }); if (s2 && s2.done) return fim(true); if (s2 && typeof s2.next === 'number') off = s2.next; } catch(e) {}
+    }
+  } catch(e) { fim(false); }
+}
+function falhaMidia(r, nome){
   mostrar(`<div class="screen"><h2>Sua avaliação foi salva.</h2>
-    <p>Mas o depoimento não conseguiu subir. Confira a internet e tente de novo.</p>
-    <button class="primary" id="retry">Tentar enviar o depoimento</button>
+    <p>Mas o depoimento não terminou de subir. Confira a internet (de preferência no Wi-Fi) e toque abaixo: o envio continua de onde parou.</p>
+    <button class="primary" id="retry">Continuar envio do depoimento</button>
     <button class="linkbtn" id="skip">Deixar sem depoimento</button></div>`);
   $('#retry').onclick = () => enviarMidia(r, nome);
   $('#skip').onclick = () => telaObrigado(nome);
@@ -851,21 +912,85 @@ function telaObrigado(nome, comMidia){
     <img src="${$('.logo').src}" alt="" style="width:200px;margin-bottom:8px">
     <div class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
     <h2>Obrigado${primeiro ? ', ' + esc(primeiro) : ''}!</h2>
-    <p>${comMidia ? 'Sua avaliação e seu depoimento foram enviados. Eles vão' : 'Sua avaliação foi enviada. Ela vai'} ajudar a edificar os próximos encontros.</p>
+    <p>${soDep ? 'Seu depoimento foi enviado. Ele vai' : comMidia ? 'Sua avaliação e seu depoimento foram enviados. Eles vão' : 'Sua avaliação foi enviada. Ela vai'} ajudar a edificar os próximos encontros.</p>
+    ${comMidia ? '' : `<p class="small">Quer deixar um depoimento em vídeo ou áudio? Pode ser agora ou depois, por este mesmo link.</p>
+    <button class="primary" id="depagora">Gravar meu depoimento</button>`}
     <button class="linkbtn" id="outro">Responder com outro e-mail</button></div>`);
-  $('#outro').onclick = () => { store.del(K_SENT); location.reload(); };
+  $('#outro').onclick = () => { store.del(K_SENT); history.replaceState(null, '', location.pathname); location.reload(); };
+  const da = $('#depagora'); if (da) da.onclick = () => { const s = store.get(K_SENT); modoDepoimento(true, s && s.email); };
+}
+
+/* ------------------ só o depoimento (quem já respondeu) ------------------ */
+let soDep = false;
+function modoDepoimento(on, email){
+  soDep = on;
+  ['#sec-voce', '#rated', '#sec-coment', '#progress', '#depbanner'].forEach(q => $(q).hidden = on);
+  $('#sec-so').hidden = !on;
+  $('.hero h1').textContent = on ? 'Seu depoimento' : 'Avaliação dos conferencistas';
+  $('.intro').hidden = on;
+  $('#send').textContent = on ? 'Enviar depoimento' : 'Enviar avaliação';
+  $('#send').disabled = false;
+  $('#sendnote').hidden = on;
+  $('#opcional').hidden = on;
+  $('#sec-dep h2').textContent = on ? 'Grave ou envie seu depoimento' : 'Deixe um depoimento';
+  $('#formerr').hidden = true;
+  if (on && email) $('#semail').value = email;
+  history.replaceState(null, '', location.pathname + (on ? '#depoimento' : ''));
+  $('#done').hidden = true; $('#app').hidden = false;
+  window.scrollTo(0, 0);
+}
+$('#irdep').addEventListener('click', () => modoDepoimento(true, $('#email').value.trim()));
+$('#voltaraval').addEventListener('click', () => modoDepoimento(false));
+$('#semail').addEventListener('input', () => limparErro('semail'));
+
+async function enviarSoDepoimento(){
+  const fe = $('#formerr');
+  const email = sem($('#semail').value);
+  const falhas = [];
+  if (!emailOk(email)) { erro('semail', 'Escreva um e-mail válido.'); falhas.push('semail'); }
+  if (!media.blob) falhas.push('midia');
+  else if (!$('#consent').checked) { erro('consent'); falhas.push('consent'); }
+  if (falhas.length) {
+    const alvo = falhas[0] === 'midia' ? $('#sec-dep') : $(`[data-f="${falhas[0]}"]`);
+    alvo.scrollIntoView({ behavior:'smooth', block:'center' });
+    fe.textContent = falhas[0] === 'midia' ? 'Grave ou escolha um áudio ou vídeo antes de enviar.' : 'Falta preencher alguns campos obrigatórios.';
+    fe.hidden = false; return;
+  }
+  const btn = $('#send'); btn.disabled = true; btn.textContent = 'Conferindo…';
+  const tipo = media.mime.startsWith('video') ? 'Vídeo' : 'Áudio';
+  try {
+    const r = API_URL ? await post({ action:'depAuth', email, tipo }) : (await espera(700), { ok:true, id:'TESTE', token:'x', nome:'' });
+    if (!r.ok) {
+      btn.disabled = false; btn.textContent = 'Enviar depoimento';
+      if (r.error === 'naoencontrado') erro('semail', 'Não encontramos uma avaliação com este e-mail. Confira se digitou igual, ou responda a avaliação completa.');
+      else if (r.error === 'jaenviado') erro('semail', 'Este e-mail já enviou um depoimento. Obrigado!');
+      else { fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes.'; fe.hidden = false; return; }
+      $('[data-f="semail"]').scrollIntoView({ behavior:'smooth', block:'center' });
+      fe.textContent = r.error === 'jaenviado' ? 'Cada pessoa envia um depoimento.' : 'E-mail não encontrado.'; fe.hidden = false; return;
+    }
+    const antes = store.get(K_SENT) || {};
+    store.set(K_SENT, { ...antes, email, nome: r.nome || antes.nome || '', comMidia: true, quando: Date.now() });
+    await enviarMidia(r, r.nome || '');
+  } catch(err) {
+    btn.disabled = false; btn.textContent = 'Enviar depoimento';
+    fe.textContent = 'Sem conexão. Verifique sua internet e tente de novo.'; fe.hidden = false;
+  }
 }
 
 /* ----------------------------- início ----------------------------- */
 if (!API_URL) $('#testmode').hidden = false;
 const enviada = store.get(K_SENT);
-if (enviada && enviada.email) {
+if (location.hash === '#depoimento') modoDepoimento(true, enviada && enviada.email);
+else if (enviada && enviada.email) {
   mostrar(`<div class="screen">
     <img src="${$('.logo').src}" alt="" style="width:200px;margin-bottom:8px">
     <h2>Você já enviou sua avaliação</h2>
     <p>Recebemos as respostas de <b>${esc(enviada.email)}</b>. Obrigado!</p>
+    ${enviada.comMidia ? '' : `<p class="small">Ainda dá tempo de deixar seu depoimento em vídeo ou áudio.</p>
+    <button class="primary" id="depagora">Gravar meu depoimento</button>`}
     <button class="linkbtn" id="outro">Responder com outro e-mail</button></div>`);
   $('#outro').onclick = () => { store.del(K_SENT); location.reload(); };
+  const da = $('#depagora'); if (da) da.onclick = () => modoDepoimento(true, enviada.email);
 }
 carregarRascunho();
 palco();
