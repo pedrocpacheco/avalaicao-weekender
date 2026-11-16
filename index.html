@@ -331,7 +331,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 calc(28px
    COLE AQUI o endereço do Apps Script (termina em /exec), entre as aspas.
    Enquanto estiver vazio, o site funciona em "modo de teste" e não salva.
    ===================================================================== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyvW3yfUQt-4EVZbsg6uOdfOHdWxm5AwNpum5O8pq1XwA1nR7p_coAd7mEuCteeMi_v/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxahzUmgdoBlM5Q1Zo7F1UeIGcRVLGJnmErwj4OR-JycHR-0BTT6tojMF-2-7_cr3eCMA/exec';
 
 /* ----------------------------- conteúdo ----------------------------- */
 const SECOES = [
@@ -835,7 +835,7 @@ $('#form').addEventListener('submit', async e => {
       btn.disabled = false; btn.textContent = 'Enviar avaliação';
       if (r.error === 'duplicado') { emailBloqueado = email; erro('email', 'Este e-mail já enviou uma avaliação. Cada pessoa responde uma vez.');
         $('[data-f="email"]').scrollIntoView({ behavior:'smooth', block:'center' }); fe.textContent = 'Este e-mail já respondeu.'; }
-      else fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes; suas respostas continuam aqui.';
+      else fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes; suas respostas continuam aqui. (' + (r.message || r.error || 'erro') + ')';
       fe.hidden = false; return;
     }
     store.set(K_SENT, { email, nome, comMidia: temMidia, quando: Date.now() });
@@ -844,7 +844,7 @@ $('#form').addEventListener('submit', async e => {
     else telaObrigado(nome);
   } catch(err) {
     btn.disabled = false; btn.textContent = 'Enviar avaliação';
-    fe.textContent = 'Sem conexão com a planilha. Verifique sua internet e tente de novo; suas respostas continuam aqui.'; fe.hidden = false;
+    fe.textContent = 'Sem conexão com a planilha. Verifique sua internet e tente de novo; suas respostas continuam aqui. (' + (err && err.message || 'rede') + ')'; fe.hidden = false;
   }
 });
 
@@ -964,7 +964,7 @@ async function enviarSoDepoimento(){
       btn.disabled = false; btn.textContent = 'Enviar depoimento';
       if (r.error === 'naoencontrado') erro('semail', 'Não encontramos uma avaliação com este e-mail. Confira se digitou igual, ou responda a avaliação completa.');
       else if (r.error === 'jaenviado') erro('semail', 'Este e-mail já enviou um depoimento. Obrigado!');
-      else { fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes.'; fe.hidden = false; return; }
+      else { fe.textContent = 'Não foi possível enviar agora. Tente de novo em instantes. (' + (r.message || r.error || 'erro') + ')'; fe.hidden = false; return; }
       $('[data-f="semail"]').scrollIntoView({ behavior:'smooth', block:'center' });
       fe.textContent = r.error === 'jaenviado' ? 'Cada pessoa envia um depoimento.' : 'E-mail não encontrado.'; fe.hidden = false; return;
     }
